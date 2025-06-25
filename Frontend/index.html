@@ -866,7 +866,7 @@
                 const normalizedPath = user.profile_image.startsWith('/uploads/') 
                     ? user.profile_image 
                     : `/uploads/${user.profile_image}`;
-                imageUrl = `http://localhost:3000${normalizedPath}`;
+                imageUrl = `http://13.51.64.129:8078${normalizedPath}`;
                 const img = new Image();
                 img.onerror = () => {
                     console.warn(`Failed to load image for ${user.username}: ${imageUrl}`);
