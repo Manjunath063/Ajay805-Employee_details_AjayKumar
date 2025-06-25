@@ -14,11 +14,11 @@ const app = express();
 // CORS middleware
 app.use(cors({
   origin: [
-    'http://localhost:3000', // Login Server
-    'http://localhost:3001', // Employee Server
-    'http://localhost:5500', // Live Server (Default)
+    'http://13.51.64.129:3000', // Login Server
+    'http://13.51.64.129:3001', // Employee Server
+    'http://13.51.64.129:5500', // Live Server (Default)
     'http://127.0.0.1:5500', // Live Server (IP)
-    'http://localhost:5501'  // Live Server (Alternate)
+    'http://13.51.64.129:5501'  // Live Server (Alternate)
   ]
 }));
 app.use(express.json());
@@ -57,9 +57,9 @@ const upload = multer({
 // PostgreSQL connection
 const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
+  host: process.env.DB_HOST || 'postgres',
   database: process.env.DB_NAME || 'auth_db',
-  password: process.env.DB_PASSWORD || 'password@12345',
+  password: process.env.DB_PASSWORD || 'admin123',
   port: process.env.DB_PORT || 5432,
 });
 
@@ -288,7 +288,7 @@ app.delete('/api/delete-employee/:id', async (req, res) => {
   }
 });
 
-const PORT = process.env.EMPLOYEE_PORT || 3001;
+const PORT = process.env.EMPLOYEE_PORT || 3043;
 app.listen(PORT, () => {
   console.log(`Employee server running on port ${PORT}`);
 });
