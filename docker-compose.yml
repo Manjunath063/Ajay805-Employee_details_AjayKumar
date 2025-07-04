@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  backend:
+    container_name: ajay805-backend
+    build: ./Backend
+    ports:
+      - "3043:3043"
+    depends_on:
+      - postgres
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=admin123
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=auth_db
+    volumes:
+      - ./Backend/uploads:/app/uploads
+
+  frontend:
+    container_name: ajay805-frontend
+    build: ./Frontend
+    ports:
+      - "8078:80"
+    depends_on:
+      - backend
+
+  postgres:
+    container_name: ajay805-postgres
+    image: postgres:13
+    ports:
+      - "5438:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin123
+      - POSTGRES_DB=auth_db
+    volumes:
+      - pgdata805:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  pgdata805:
+
