@@ -290,5 +290,5 @@ app.delete('/api/delete-employee/:id', async (req, res) => {
 
 const PORT = process.env.EMPLOYEE_PORT || 3043;
 app.listen(PORT, () => {
-  console.log(`Employee server running on port ${PORT}`);
+  console.log(`Employee server running on http://51.20.115.251:${PORT}`);
 });
