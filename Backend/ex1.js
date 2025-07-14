@@ -13,14 +13,14 @@ const app = express();
 // CORS middleware
 app.use(cors({
   origin: [
-    'http://13.60.225.128:8078', // Login Server
-    'http://13.60.225.128:3043', // Employee Server
-    'http://13.60.225.128:5500', // Live Server (Default)
+    'http://51.20.115.251:8078', // Login Server
+    'http://51.20.115.251:3001', // Employee Server
+    'http://51.20.115.251:5500', // Live Server (Default)
     'http://127.0.0.1:5500', // Live Server (IP)
-   // 'http://13.60.225.128:8079'  // Live Server (Alternate)
+    'http://51.20.115.251:5501',  // Live Server (Alternate)
+    'http://51.20.115.251:8078', 
   ]
 }));
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -34,7 +34,7 @@ if (!fs.existsSync(uploadDir)) {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, 'Uploads/');
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -51,7 +51,7 @@ const upload = multer({
     }
     cb(null, true);
   },
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 });
 
 // PostgreSQL connection
@@ -73,7 +73,6 @@ async function initializeDatabase() {
         AND table_name = 'employees'
       );
     `);
-
     const tableExists = tableCheck.rows[0].exists;
 
     if (!tableExists) {
@@ -106,7 +105,6 @@ async function initializeDatabase() {
           AND column_name = 'profile_image'
         );
       `);
-
       if (!columnCheck.rows[0].exists) {
         console.log('Adding profile_image column to employees table...');
         await pool.query('ALTER TABLE employees ADD COLUMN profile_image VARCHAR(255);');
@@ -114,21 +112,30 @@ async function initializeDatabase() {
       }
     }
   } catch (err) {
-    console.error('Error initializing database:', err);
+    console.error('Error initializing database:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code,
+      detail: err.detail
+    });
     process.exit(1);
   }
 }
 
-// Database connection test
+// Test database connection
 pool.connect((err, client, release) => {
   if (err) {
-    console.error('Database connection error:', err);
+    console.error('Database connection error:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code
+    });
     process.exit(1);
-  } else {
-    console.log('Connected to PostgreSQL database');
-    release();
-    initializeDatabase();
+    return;
   }
+  console.log('Connected to PostgreSQL database');
+  release();
+  initializeDatabase();
 });
 
 // Health check
@@ -137,17 +144,19 @@ app.get('/api/health', async (req, res) => {
     await pool.query('SELECT 1');
     res.status(200).json({ status: 'Database connection OK' });
   } catch (err) {
-    console.error('Health check error:', err);
+    console.error('Health check error:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code
+    });
     res.status(500).json({ error: 'Database connection failed', details: err.message });
   }
 });
 
 // Serve employee management page
-app.get('/employees', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'employees.html'));
-});
+app.get('/employees', (req, res) => res.sendFile(path.join(__dirname, 'public', 'employees.html')));
 
-// Track new users
+// Get new users for notifications
 let lastChecked = new Date();
 app.get('/api/new-users', async (req, res) => {
   try {
@@ -158,7 +167,11 @@ app.get('/api/new-users', async (req, res) => {
     lastChecked = new Date();
     res.json(result.rows);
   } catch (err) {
-    console.error('Error in GET /api/new-users:', err);
+    console.error('Error in GET /api/new-users:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code
+    });
     res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
@@ -171,7 +184,11 @@ app.get('/api/all-users', async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
-    console.error('Error in GET /api/all-users:', err);
+    console.error('Error in GET /api/all-users:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code
+    });
     res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
@@ -188,20 +205,21 @@ app.post('/api/add-employee', upload.single('profileImage'), async (req, res) =>
       return res.status(400).json({ error: 'All fields are required' });
     }
 
+    // Basic validation
     if (!id.match(/^[A-Z]{3}[0-9]{4}$/)) {
       return res.status(400).json({ error: 'Invalid Employee ID format' });
     }
-
-    if (!email.match(/^[a-zA-Z][a-zA-Z0-9._-]*[a-zA-Z0-9]@astrolitetech\.com$/)) {
+    if (!email.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
-
     if (!phone.match(/^[0-9]{10}$/)) {
       return res.status(400).json({ error: 'Phone number must be 10 digits' });
     }
 
+    // Check if employee exists
     const existing = await pool.query('SELECT id FROM employees WHERE id = $1', [id]);
     if (existing.rows.length > 0) {
+      // Update existing employee
       await pool.query(
         `UPDATE employees SET 
           name = $1, role = $2, gender = $3, dob = $4, location = $5, email = $6, 
@@ -212,6 +230,7 @@ app.post('/api/add-employee', upload.single('profileImage'), async (req, res) =>
       );
       res.status(200).json({ message: 'Employee updated successfully', profile_image: profileImage });
     } else {
+      // Insert new employee
       await pool.query(
         `INSERT INTO employees (id, name, role, gender, dob, location, email, phone, join_date, experience, skills, achievement, profile_image) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
@@ -220,7 +239,11 @@ app.post('/api/add-employee', upload.single('profileImage'), async (req, res) =>
       res.status(201).json({ message: 'Employee added successfully', profile_image: profileImage });
     }
   } catch (err) {
-    console.error('Error in POST /api/add-employee:', err);
+    console.error('Error in POST /api/add-employee:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code
+    });
     if (err.code === '23505') {
       res.status(400).json({ error: 'Employee ID already exists' });
     } else if (err.message.includes('Only JPEG or PNG')) {
@@ -237,7 +260,11 @@ app.get('/api/employees', async (req, res) => {
     const result = await pool.query('SELECT * FROM employees');
     res.json(result.rows);
   } catch (err) {
-    console.error('Error in GET /api/employees:', err);
+    console.error('Error in GET /api/employees:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code
+    });
     res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
@@ -252,15 +279,16 @@ app.delete('/api/delete-employee/:id', async (req, res) => {
     }
     res.json({ message: 'Employee deleted successfully' });
   } catch (err) {
-    console.error('Error in DELETE /api/delete-employee:', err);
+    console.error('Error in DELETE /api/delete-employee:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code
+    });
     res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
 
-// Default route for favicon to suppress 404
-app.get('/favicon.ico', (req, res) => res.status(204).end());
-
 const PORT = process.env.EMPLOYEE_PORT || 3043;
 app.listen(PORT, () => {
-  console.log(`Employee server running on port ${PORT}`);
+  console.log(`Employee server running on http://51.20.115.251:${PORT}`);
 });
